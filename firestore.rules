@@ -1,0 +1,190 @@
+rules_version = '2';
+
+// Paisa Ledger — access model
+//
+//   owner   full control of the ledger: settings, members, and every entry
+//           including other people's
+//   editor  can add entries, goals and commitments; can edit or delete
+//           ONLY the ones they created; cannot touch anyone else's
+//   viewer  read-only
+//
+// Every rule below is enforced by Firestore itself, so a modified client
+// cannot get around it. The UI hides what you cannot do; these rules are
+// what actually stops it.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function myEmail() {
+      return signedIn() && request.auth.token.email != null
+        ? request.auth.token.email.lower() : '';
+    }
+
+    // ---- who may use this app at all -----------------------------------
+    // The app is invite-only: an email must have a doc under /allowed
+    // before it can start a ledger. Seed the first one by hand in the
+    // Firebase console (see README) — after that, creating an invite
+    // enrolls the invitee automatically.
+    function allowedDoc() {
+      return /databases/$(database)/documents/allowed/$(myEmail());
+    }
+    function amAllowed() {
+      return signedIn() && myEmail() != '' && exists(allowedDoc());
+    }
+    // The seed account: the one that bootstrapped the app. Its only extra
+    // power is over this list — it has no access to anyone's ledgers.
+    function amSeed() {
+      return amAllowed() && get(allowedDoc()).data.get('seed', false) == true;
+    }
+    // When openInvites is off, only the seed account can enroll new people.
+    function openInvites() {
+      return !exists(/databases/$(database)/documents/config/app)
+        || get(/databases/$(database)/documents/config/app).data.get('openInvites', true) == true;
+    }
+
+    match /allowed/{email} {
+      // You can always check your own entry; the full list is for members.
+      allow read: if signedIn() && (email == myEmail() || amAllowed());
+      allow create: if amSeed() || (amAllowed() && openInvites());
+      allow update, delete: if amSeed();
+    }
+
+    match /config/{id} {
+      allow read: if signedIn();
+      allow write: if amSeed();
+    }
+
+    // ---- user profiles -------------------------------------------------
+    // Readable by any signed-in user so member lists can show names and
+    // avatars; writable only by the person themselves.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    // ---- collection-group read of your own membership ------------------
+    // Lets the app answer "which ledgers am I in?" with one query. It can
+    // only ever return docs whose id is the caller's own uid.
+    match /{path=**}/members/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ---- ledgers -------------------------------------------------------
+    match /ledgers/{lid} {
+
+      function ledger() {
+        return get(/databases/$(database)/documents/ledgers/$(lid)).data;
+      }
+      function memberPath() {
+        return /databases/$(database)/documents/ledgers/$(lid)/members/$(request.auth.uid);
+      }
+      function isMember() {
+        return signedIn() && exists(memberPath());
+      }
+      function myRole() {
+        return isMember() ? get(memberPath()).data.role : 'none';
+      }
+      function isOwner() {
+        return signedIn() && ledger().ownerUid == request.auth.uid;
+      }
+      function canWrite() {
+        return myRole() == 'owner' || myRole() == 'editor';
+      }
+      function invitePath(email) {
+        return /databases/$(database)/documents/ledgers/$(lid)/invites/$(email);
+      }
+      // A person may add themselves as a member only if the owner left an
+      // invite for their verified email, and only at the invited role.
+      function claimingOwnInvite(uid) {
+        return request.auth.uid == uid
+          && myEmail() != ''
+          && exists(invitePath(myEmail()))
+          && request.resource.data.role == get(invitePath(myEmail())).data.role
+          && request.resource.data.uid == request.auth.uid;
+      }
+
+      // A soft-deleted ledger (one carrying `deletedAt`) is invisible to
+      // everyone but its owner, who can still restore or purge it.
+      function isDeleted() {
+        return 'deletedAt' in ledger();
+      }
+
+      allow create: if signedIn() && amAllowed()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.name is string;
+      allow read: if isMember() && (isOwner() || !('deletedAt' in resource.data));
+      // Renaming, budgets, categories, and soft-delete/restore are the owner's.
+      allow update: if isOwner()
+        && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if isOwner();
+
+      // ---- members -----------------------------------------------------
+      match /members/{uid} {
+        allow read: if isMember();
+        allow create: if isOwner() || claimingOwnInvite(uid);
+        // Role changes are the owner's; nobody can demote or remove the owner.
+        allow update: if isOwner() && uid != ledger().ownerUid;
+        // The owner can remove anyone but themselves, so a live ledger always
+        // has an owner; anyone else can leave. The one exception is a purge:
+        // once the ledger is soft-deleted the owner clears their own
+        // membership too, as the last step before the ledger record goes.
+        allow delete: if (isOwner() && (uid != ledger().ownerUid || isDeleted()))
+          || (request.auth.uid == uid && uid != ledger().ownerUid);
+      }
+
+      // ---- invites -----------------------------------------------------
+      // Doc id is the invited email, lowercased.
+      match /invites/{email} {
+        allow read: if isMember() || (signedIn() && email == myEmail());
+        allow create, update: if isOwner()
+          && request.resource.data.role in ['editor', 'viewer'];
+        // The owner can withdraw one; the invitee's own invite clears
+        // itself once claimed.
+        allow delete: if isOwner() || (signedIn() && email == myEmail());
+      }
+
+      // ---- entries, goals, commitments ---------------------------------
+      // Same shape for all three: create as yourself, change only your own,
+      // owner overrides everything.
+      match /entries/{id} {
+        allow read: if isMember();
+        allow create: if canWrite()
+          && request.resource.data.uid == request.auth.uid;
+        allow update: if isOwner()
+          || (canWrite()
+              && resource.data.uid == request.auth.uid
+              && request.resource.data.uid == resource.data.uid);
+        allow delete: if isOwner()
+          || (canWrite() && resource.data.uid == request.auth.uid);
+      }
+
+      match /goals/{id} {
+        allow read: if isMember();
+        allow create: if canWrite()
+          && request.resource.data.uid == request.auth.uid;
+        allow update: if isOwner()
+          || (canWrite()
+              && resource.data.uid == request.auth.uid
+              && request.resource.data.uid == resource.data.uid);
+        allow delete: if isOwner()
+          || (canWrite() && resource.data.uid == request.auth.uid);
+      }
+
+      match /recur/{id} {
+        allow read: if isMember();
+        allow create: if canWrite()
+          && request.resource.data.uid == request.auth.uid;
+        allow update: if isOwner()
+          || (canWrite()
+              && resource.data.uid == request.auth.uid
+              && request.resource.data.uid == resource.data.uid);
+        allow delete: if isOwner()
+          || (canWrite() && resource.data.uid == request.auth.uid);
+      }
+    }
+  }
+}

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paisa Ledger</title>
+<meta name="description" content="A shared household expense ledger — private by default, shared on your terms.">
+<meta name="theme-color" content="#0C6B5A">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<!-- signed out / loading -->
+<div id="boot" class="boot">
+  <div class="boot-card">
+    <h1>Paisa<span>.</span>Ledger</h1>
+    <p>A household expense ledger. Your own book stays yours; share it with whoever you choose, at the access you choose.</p>
+    <div id="bootbody"><div class="spinner" role="status" aria-label="Loading"></div></div>
+    <p class="fine">Sign-in is handled by Google. Entries live in your own Firebase project — nobody else, this app's author included, can read them.</p>
+  </div>
+</div>
+
+<!-- signed in -->
+<div id="app" hidden>
+  <div class="wrap">
+    <header class="mast">
+      <h1 class="brand">Paisa<span>.</span>Ledger</h1>
+      <div class="mast-side">
+        <span class="netdot" id="netdot"><i></i><span id="nettext">Online</span></span>
+        <button class="iconbtn" id="themebtn" title="Switch theme" aria-label="Switch theme">◐</button>
+        <button class="avatar" id="mebtn" aria-label="Account"></button>
+      </div>
+    </header>
+
+    <div class="ledgerbar">
+      <button class="ledgersel" id="ledgersel">
+        <span class="nm" id="ledgername">…</span>
+        <span class="cr">▾</span>
+      </button>
+      <span class="rolechip" id="rolechip">—</span>
+    </div>
+
+    <div class="monthbar">
+      <div class="monthrow">
+        <button id="prevm" aria-label="Previous month">‹</button>
+        <div class="monthname num" id="monthname">—</div>
+        <button id="nextm" aria-label="Next month">›</button>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="add" aria-selected="true">Add</button>
+        <button role="tab" data-tab="overview" aria-selected="false">Overview</button>
+        <button role="tab" data-tab="plan" aria-selected="false">Plan</button>
+        <button role="tab" data-tab="history" aria-selected="false">History</button>
+        <button role="tab" data-tab="people" aria-selected="false">People</button>
+        <button role="tab" data-tab="data" aria-selected="false">Data</button>
+      </div>
+    </div>
+
+    <main id="view" class="stack"></main>
+  </div>
+</div>
+
+<div id="modal"></div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
