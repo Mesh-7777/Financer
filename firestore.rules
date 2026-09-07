@@ -69,8 +69,8 @@ service cloud.firestore {
     // ---- collection-group read of your own membership ------------------
     // Lets the app answer "which ledgers am I in?" with one query. It can
     // only ever return docs whose id is the caller's own uid.
-    match /{path=**}/members/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
+        match /{path=**}/members/{docId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
     // ---- ledgers -------------------------------------------------------
