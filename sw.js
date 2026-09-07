@@ -3,7 +3,7 @@
    by Firestore itself (IndexedDB), which is what lets you add entries
    offline and have them upload when you're back on. */
 
-const VERSION = "paisa-v1";
+const VERSION = "paisa-v2";
 const SHELL = [
   "./",
   "./index.html",
