@@ -5,14 +5,8 @@
 // every visitor's browser downloads it. What protects your data is Google
 // sign-in plus the rules in firestore.rules, not hiding this file.
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyDgDWX_l4yoavr9ARVEiohnXvNKhXRnVus",
   authDomain: "todo-fb-631fb.firebaseapp.com",
   projectId: "todo-fb-631fb",
@@ -21,7 +15,3 @@ const firebaseConfig = {
   appId: "1:521194401403:web:27afe11ed3c4b0e2ce3cde",
   measurementId: "G-FR1FTY232J"
 };
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
