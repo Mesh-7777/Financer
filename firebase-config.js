@@ -4,12 +4,24 @@
 // These values are NOT secrets. Firebase web config is public by design —
 // every visitor's browser downloads it. What protects your data is Google
 // sign-in plus the rules in firestore.rules, not hiding this file.
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-export const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project",
-  storageBucket: "your-project.firebasestorage.app",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000000000"
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyDgDWX_l4yoavr9ARVEiohnXvNKhXRnVus",
+  authDomain: "todo-fb-631fb.firebaseapp.com",
+  projectId: "todo-fb-631fb",
+  storageBucket: "todo-fb-631fb.firebasestorage.app",
+  messagingSenderId: "521194401403",
+  appId: "1:521194401403:web:27afe11ed3c4b0e2ce3cde",
+  measurementId: "G-FR1FTY232J"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
