@@ -62,7 +62,7 @@ const A={
   postedRecur:new Set()     // guards double-posting within a session
 };
 let ui={tab:"add",month:monthOf(ymd(new Date())),type:"expense",cat:null,method:"UPI",q:"",filterCat:"",filterWho:"",editing:null,busy:false,
-  draft:{amt:"",note:"",date:""}};
+  draft:{amt:"",note:"",date:""},picker:null};
 
 const settings=()=>Object.assign(
   {budget:0,catBudgets:{},cats:DEF_EXP.slice(),incomeCats:DEF_INC.slice()},
@@ -512,8 +512,10 @@ function viewAdd(){
     <div class="field" style="margin-bottom:16px"><span class="lbl">Paid with</span>
       <div class="chips">${METHODS.map(m=>`<button class="chip" data-method="${m}" aria-pressed="${m===ui.method}">${m}</button>`).join("")}</div></div>
     <div class="row2" style="margin-bottom:16px">
-      <div class="field"><label class="lbl" for="date">Date</label>
-        <input id="date" type="date" value="${ui.draft.date||defaultDate()}" max="${ymd(new Date())}"></div>
+      <div class="field"><label class="lbl" for="date-btn">Date</label>
+        <input type="hidden" id="date" value="${ui.draft.date||defaultDate()}">
+        <button type="button" id="date-btn" class="picker" data-pickdate data-target="date" data-max="${ymd(new Date())}" data-label="Date">
+          <span class="pv">${esc(dateLabel(ui.draft.date||defaultDate()))}</span><span class="cr">▾</span></button></div>
       <div class="field"><label class="lbl" for="note">Note</label>
         <input id="note" type="text" placeholder="optional" autocomplete="off" value="${esc(ui.draft.note)}"></div>
     </div>
@@ -736,9 +738,10 @@ function viewPeople(){
       <span class="body"><span class="nm">${esc(m.name||m.email)}${isMe?" (you)":""}</span>
         <span class="em">${esc(m.email||"")}</span></span>
       ${isTheOwner?`<span class="rolechip owner">owner</span>`
-        :isOwner()?`<select data-role="${esc(m.uid)}">
-            <option value="editor" ${m.role==="editor"?"selected":""}>Can add</option>
-            <option value="viewer" ${m.role==="viewer"?"selected":""}>View only</option></select>
+        :isOwner()?`<input type="hidden" id="role-${esc(m.uid)}" value="${esc(m.role)}">
+          <button type="button" class="picker sm" data-pick data-target="role-${esc(m.uid)}" data-role="${esc(m.uid)}" data-label="Access"
+            data-options="${esc(JSON.stringify([{v:"editor",l:"Can add"},{v:"viewer",l:"View only"}]))}">
+            <span class="pv">${m.role==="viewer"?"View only":"Can add"}</span><span class="cr">▾</span></button>
           <button class="iconbtn" data-remove="${esc(m.uid)}" aria-label="Remove ${esc(m.name||m.email)}">×</button>`
         :`<span class="rolechip ${m.role==="viewer"?"viewer":""}">${esc(m.role)}</span>`}
     </div>`;
@@ -758,8 +761,11 @@ function viewPeople(){
     <div class="row2" style="margin-bottom:12px">
       <div class="field"><label class="lbl" for="i-email">Their Google email</label>
         <input id="i-email" type="email" inputmode="email" placeholder="name@gmail.com" autocomplete="off"></div>
-      <div class="field"><label class="lbl" for="i-role">Access</label>
-        <select id="i-role"><option value="editor">Can add entries</option><option value="viewer">View only</option></select></div>
+      <div class="field"><label class="lbl" for="i-role-btn">Access</label>
+        <input type="hidden" id="i-role" value="editor">
+        <button type="button" id="i-role-btn" class="picker" data-pick data-target="i-role" data-label="Access"
+          data-options="${esc(JSON.stringify([{v:"editor",l:"Can add entries"},{v:"viewer",l:"View only"}]))}">
+          <span class="pv">Can add entries</span><span class="cr">▾</span></button></div>
     </div>
     <button class="btn" data-act="invite">Create invite</button>
     ${A.invites.length?`<p class="eyebrow" style="margin-top:20px">Waiting to be accepted</p>
@@ -921,12 +927,21 @@ function openTx(id){
     ${t.rec?`<p class="hint" style="margin:-6px 0 12px">Posted automatically by a recurring item. Editing changes only this month's entry.</p>`:""}
     <div class="row2" style="margin-bottom:12px">
       <div class="field"><label class="lbl" for="e-amt">Amount (₹)</label><input id="e-amt" type="text" inputmode="decimal" value="${t.amt}"></div>
-      <div class="field"><label class="lbl" for="e-date">Date</label><input id="e-date" type="date" value="${t.date}"></div></div>
+      <div class="field"><label class="lbl" for="e-date-btn">Date</label>
+        <input type="hidden" id="e-date" value="${t.date}">
+        <button type="button" id="e-date-btn" class="picker" data-pickdate data-target="e-date" data-max="${ymd(new Date())}" data-label="Date">
+          <span class="pv">${esc(dateLabel(t.date))}</span><span class="cr">▾</span></button></div></div>
     <div class="row2" style="margin-bottom:12px">
-      <div class="field"><label class="lbl" for="e-cat">Category</label>
-        <select id="e-cat">${opts.map(c=>`<option ${c===t.cat?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
-      <div class="field"><label class="lbl" for="e-method">Paid with</label>
-        <select id="e-method">${METHODS.map(m=>`<option ${m===t.method?"selected":""}>${m}</option>`).join("")}</select></div></div>
+      <div class="field"><label class="lbl" for="e-cat-btn">Category</label>
+        <input type="hidden" id="e-cat" value="${esc(t.cat)}">
+        <button type="button" id="e-cat-btn" class="picker" data-pick data-target="e-cat" data-label="Category"
+          data-options="${esc(JSON.stringify(opts.map(c=>({v:c,l:c}))))}">
+          <span class="pv">${esc(t.cat)}</span><span class="cr">▾</span></button></div>
+      <div class="field"><label class="lbl" for="e-method-btn">Paid with</label>
+        <input type="hidden" id="e-method" value="${esc(t.method)}">
+        <button type="button" id="e-method-btn" class="picker" data-pick data-target="e-method" data-label="Paid with"
+          data-options="${esc(JSON.stringify(METHODS.map(m=>({v:m,l:m}))))}">
+          <span class="pv">${esc(t.method)}</span><span class="cr">▾</span></button></div></div>
     <div class="field" style="margin-bottom:16px"><label class="lbl" for="e-note">Note</label>
       <input id="e-note" type="text" value="${esc(t.note||"")}"></div>
     ${t.uid!==A.me.uid?`<p class="hint" style="margin-bottom:12px">Added by ${esc(memberName(t.uid))} — you're editing it as the ledger owner.</p>`:""}
@@ -947,8 +962,10 @@ function openGoal(id){
         <input id="g-target" type="number" inputmode="numeric" min="0" step="1000" value="${g?g.target:""}" placeholder="300000"></div>
       <div class="field"><label class="lbl" for="g-saved">Already saved (₹)</label>
         <input id="g-saved" type="number" inputmode="numeric" min="0" step="1000" value="${g?(g.saved||0):0}"></div></div>
-    <div class="field" style="margin-bottom:16px"><label class="lbl" for="g-by">Target date</label>
-      <input id="g-by" type="date" value="${g&&g.by?g.by:""}"></div>
+    <div class="field" style="margin-bottom:16px"><label class="lbl" for="g-by-btn">Target date</label>
+      <input type="hidden" id="g-by" value="${g&&g.by?g.by:""}">
+      <button type="button" id="g-by-btn" class="picker" data-pickdate data-target="g-by" data-label="Target date" data-clearable="1" data-placeholder="No date set">
+        <span class="pv${g&&g.by?"":" ph"}">${g&&g.by?esc(dateLabel(g.by)):"No date set"}</span><span class="cr">▾</span></button></div>
     <div style="display:flex;gap:10px">
       <button class="btn" data-act="savegoal">${g?"Save goal":"Create goal"}</button>
       ${g?`<button class="btn danger" data-act="delgoal" style="width:auto;white-space:nowrap">Delete</button>`:""}</div>`);
@@ -963,7 +980,10 @@ function openMoney(id){
     <div class="row2" style="margin-bottom:16px">
       <div class="field"><label class="lbl" for="m-amt">Amount (₹)</label>
         <input id="m-amt" type="text" inputmode="decimal" value="${n.perMonth>0?Math.round(n.perMonth):""}" placeholder="0"></div>
-      <div class="field"><label class="lbl" for="m-date">Date</label><input id="m-date" type="date" value="${ymd(new Date())}"></div></div>
+      <div class="field"><label class="lbl" for="m-date-btn">Date</label>
+        <input type="hidden" id="m-date" value="${ymd(new Date())}">
+        <button type="button" id="m-date-btn" class="picker" data-pickdate data-target="m-date" data-max="${ymd(new Date())}" data-label="Date">
+          <span class="pv">${esc(dateLabel(ymd(new Date())))}</span><span class="cr">▾</span></button></div></div>
     <button class="btn" data-act="savemoney">Add to goal</button>
     <p class="hint" style="margin-top:12px">Money moved into savings isn't counted as spending — it shows up in the save rate instead.</p>`);
   document.getElementById("m-amt").focus();
@@ -973,6 +993,9 @@ function openRec(id){
   if(r&&!canModify(r)) return toast("Only "+memberName(r.uid)+" or the ledger owner can change that");
   ui.editing=id||null;
   const st=settings(), cur=monthOf(ymd(new Date()));
+  const defKind=r?r.kind:Object.keys(KINDS)[0];
+  const defCat=r?r.cat:(st.cats.includes("EMI & Loans")?"EMI & Loans":st.cats[0]);
+  const defMethod=r?r.method:(METHODS.includes("Netbanking")?"Netbanking":METHODS[0]);
   sheet(`${head(r?"Edit recurring item":"New recurring item")}
     <div class="field" style="margin-bottom:12px"><label class="lbl" for="r-name">Name</label>
       <input id="r-name" type="text" value="${r?esc(r.name):""}" placeholder="Car loan / Netflix / Rent" autocomplete="off"></div>
@@ -981,16 +1004,27 @@ function openRec(id){
         <input id="r-amt" type="number" inputmode="numeric" min="0" step="100" value="${r?r.amt:""}"></div>
       <div class="field"><label class="lbl" for="r-day">Day of month</label>
         <input id="r-day" type="number" inputmode="numeric" min="1" max="31" value="${r?r.day:5}"></div>
-      <div class="field"><label class="lbl" for="r-kind">Type</label>
-        <select id="r-kind">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}" ${r&&r.kind===k?"selected":""}>${v}</option>`).join("")}</select></div></div>
+      <div class="field"><label class="lbl" for="r-kind-btn">Type</label>
+        <input type="hidden" id="r-kind" value="${esc(defKind)}">
+        <button type="button" id="r-kind-btn" class="picker" data-pick data-target="r-kind" data-label="Type"
+          data-options="${esc(JSON.stringify(Object.entries(KINDS).map(([k,v])=>({v:k,l:v}))))}">
+          <span class="pv">${esc(KINDS[defKind])}</span><span class="cr">▾</span></button></div></div>
     <div class="row2" style="margin-bottom:12px">
-      <div class="field"><label class="lbl" for="r-cat">Category</label>
-        <select id="r-cat">${st.cats.map(c=>`<option ${r?(r.cat===c?"selected":""):(c==="EMI & Loans"?"selected":"")}>${esc(c)}</option>`).join("")}</select></div>
-      <div class="field"><label class="lbl" for="r-method">Paid with</label>
-        <select id="r-method">${METHODS.map(m=>`<option ${r?(r.method===m?"selected":""):(m==="Netbanking"?"selected":"")}>${m}</option>`).join("")}</select></div></div>
+      <div class="field"><label class="lbl" for="r-cat-btn">Category</label>
+        <input type="hidden" id="r-cat" value="${esc(defCat)}">
+        <button type="button" id="r-cat-btn" class="picker" data-pick data-target="r-cat" data-label="Category"
+          data-options="${esc(JSON.stringify(st.cats.map(c=>({v:c,l:c}))))}">
+          <span class="pv">${esc(defCat)}</span><span class="cr">▾</span></button></div>
+      <div class="field"><label class="lbl" for="r-method-btn">Paid with</label>
+        <input type="hidden" id="r-method" value="${esc(defMethod)}">
+        <button type="button" id="r-method-btn" class="picker" data-pick data-target="r-method" data-label="Paid with"
+          data-options="${esc(JSON.stringify(METHODS.map(m=>({v:m,l:m}))))}">
+          <span class="pv">${esc(defMethod)}</span><span class="cr">▾</span></button></div></div>
     <div class="row2" style="margin-bottom:12px">
-      <div class="field"><label class="lbl" for="r-start">First payment</label>
-        <input id="r-start" type="month" value="${r?r.start:cur}"></div>
+      <div class="field"><label class="lbl" for="r-start-btn">First payment</label>
+        <input type="hidden" id="r-start" value="${r?r.start:cur}">
+        <button type="button" id="r-start-btn" class="picker" data-pickmonth data-target="r-start" data-label="First payment">
+          <span class="pv">${esc(monthShort(r?r.start:cur))}</span><span class="cr">▾</span></button></div>
       <div class="field"><label class="lbl" for="r-count">Total instalments</label>
         <input id="r-count" type="number" inputmode="numeric" min="0" value="${r&&r.count?r.count:""}" placeholder="blank = ongoing"></div></div>
     <div class="kv" style="margin-bottom:14px"><span>Post it to the ledger automatically<br>
@@ -1002,6 +1036,105 @@ function openRec(id){
     ${r?`<p class="hint" style="margin-top:12px">Deleting stops future postings; entries already in the ledger stay.</p>`:""}`);
   document.getElementById("r-name").focus();
 }
+
+/* ---------------- pickers (iOS-style dropdown & calendar) ---------------
+   Native <select> and <input type=date/month> render as whatever the OS
+   gives you. These stand in a hidden input (so val() reads keep working
+   unchanged) plus a button that opens a bottom sheet stacked on top of
+   #modal — never replacing it, so a picker opened from inside an edit
+   sheet doesn't wipe whatever the person already typed in other fields. */
+function pickHead(t){ return `<div class="sheethead"><h3>${t}</h3><button type="button" class="iconbtn" data-act="closepicker" aria-label="Close">×</button></div>`; }
+function pickerOverlay(inner){
+  const ex=document.querySelector("[data-picker-scrim]");
+  if(ex){ ex.querySelector(".picker-sheet").innerHTML=inner; return; }
+  document.getElementById("modal").insertAdjacentHTML("beforeend",
+    `<div class="scrim picker-scrim" data-picker-scrim><div class="sheet picker-sheet" role="dialog" aria-modal="true">${inner}</div></div>`);
+  document.querySelector("[data-picker-scrim]").addEventListener("click",e=>{
+    if(e.target.hasAttribute("data-picker-scrim")) closePicker();
+  });
+}
+function closePicker(){ const ov=document.querySelector("[data-picker-scrim]"); if(ov) ov.remove(); ui.picker=null; }
+
+function setPicked(target,value,label){
+  const inp=document.getElementById(target); if(inp) inp.value=value;
+  const btn=document.querySelector(`[data-target="${target}"]`);
+  if(btn){ const pv=btn.querySelector(".pv"); if(pv){
+    pv.textContent=label||btn.dataset.placeholder||""; pv.classList.toggle("ph",!label);
+  }}
+  if(target==="date") ui.draft.date=value;
+}
+
+function openOptionPicker(trg){
+  const target=trg.dataset.target, opts=JSON.parse(trg.dataset.options), cur=document.getElementById(target).value;
+  ui.picker={kind:"opt",target,opts,roleUid:trg.dataset.role||null};
+  pickerOverlay(`${pickHead(esc(trg.dataset.label||"Choose"))}
+    <div class="picklist">${opts.map(o=>`<button type="button" class="pickrow" data-pickval="${esc(o.v)}" aria-pressed="${o.v===cur}">
+      <span>${esc(o.l)}</span>${o.v===cur?`<span class="pickcheck">✓</span>`:""}</button>`).join("")}</div>`);
+}
+function choosePickval(el){
+  const p=ui.picker; if(!p) return;
+  const chosen=p.opts.find(o=>o.v===el.dataset.pickval);
+  setPicked(p.target,el.dataset.pickval,chosen?chosen.l:el.dataset.pickval);
+  if(p.roleUid) changeRole(p.roleUid,el.dataset.pickval);
+  closePicker();
+}
+
+const DOWS=["S","M","T","W","T","F","S"];
+function calGrid(month,cur,max,min){
+  const[y,mo]=month.split("-").map(Number);
+  const startDow=new Date(y,mo-1,1).getDay(), dim=daysIn(month), todayS=ymd(new Date());
+  const cells=[];
+  for(let i=0;i<startDow;i++) cells.push(`<span class="calcell empty"></span>`);
+  for(let d=1;d<=dim;d++){
+    const ds=month+"-"+pad(d), dis=(max&&ds>max)||(min&&ds<min);
+    cells.push(`<button type="button" class="calcell${ds===cur?" sel":""}${ds===todayS?" today":""}" ${dis?"disabled":""} data-day="${ds}">${d}</button>`);
+  }
+  return cells.join("");
+}
+function dateLabel(ds){ return fmtDay(ds,{day:"numeric",month:"short",year:"numeric"}); }
+function openDatePicker(trg){
+  const target=trg.dataset.target, cur=document.getElementById(target).value||ymd(new Date());
+  ui.picker={kind:"date",target,month:monthOf(cur),cur,max:trg.dataset.max||"",min:trg.dataset.min||"",
+    label:trg.dataset.label||"Date",clearable:trg.dataset.clearable==="1"};
+  renderCalPicker();
+}
+function renderCalPicker(){
+  const p=ui.picker;
+  pickerOverlay(`${pickHead(esc(p.label))}
+    <div class="calnav">
+      <button type="button" data-calnav="-1" aria-label="Previous month">‹</button>
+      <span class="calmonth">${esc(monthLabel(p.month))}</span>
+      <button type="button" data-calnav="1" aria-label="Next month" ${p.max&&shiftMonth(p.month,1)>monthOf(p.max)?"disabled":""}>›</button>
+    </div>
+    <div class="calgrid">${DOWS.map(d=>`<span class="caldow">${d}</span>`).join("")}${calGrid(p.month,p.cur,p.max,p.min)}</div>
+    <div class="calfoot">
+      <button type="button" class="btn ghost sm" data-act="caltoday">Today</button>
+      ${p.clearable?`<button type="button" class="btn ghost sm" data-act="calclear">No date</button>`:""}
+    </div>`);
+}
+function chooseDay(ds){ const p=ui.picker; if(!p) return; setPicked(p.target,ds,dateLabel(ds)); closePicker(); }
+function pickToday(){ const p=ui.picker; if(!p||p.kind!=="date") return; const ds=ymd(new Date()); setPicked(p.target,ds,dateLabel(ds)); closePicker(); }
+function pickClear(){ const p=ui.picker; if(!p) return; setPicked(p.target,"",""); closePicker(); }
+
+function openMonthPicker(trg){
+  const target=trg.dataset.target, cur=document.getElementById(target).value||monthOf(ymd(new Date()));
+  ui.picker={kind:"month",target,year:Number(cur.slice(0,4)),cur,label:trg.dataset.label||"Month"};
+  renderMonthPicker();
+}
+function renderMonthPicker(){
+  const p=ui.picker;
+  pickerOverlay(`${pickHead(esc(p.label))}
+    <div class="calnav">
+      <button type="button" data-calnavyear="-1" aria-label="Previous year">‹</button>
+      <span class="calmonth">${p.year}</span>
+      <button type="button" data-calnavyear="1" aria-label="Next year">›</button>
+    </div>
+    <div class="calgrid months">${MONS.map((m,i)=>{
+      const ms=p.year+"-"+pad(i+1);
+      return `<button type="button" class="calcell month${ms===p.cur?" sel":""}" data-month="${ms}">${m}</button>`;
+    }).join("")}</div>`);
+}
+function chooseMonthCell(ms){ const p=ui.picker; if(!p) return; setPicked(p.target,ms,monthShort(ms)); closePicker(); }
 
 /* ---------------- events ---------------- */
 function wire(){
@@ -1015,14 +1148,12 @@ function wire(){
     amt.addEventListener("input",e=>{ ui.draft.amt=e.target.value; });
   }
   const note=v.querySelector("#note"); if(note) note.addEventListener("input",e=>{ ui.draft.note=e.target.value; });
-  const dt=v.querySelector("#date"); if(dt) dt.addEventListener("change",e=>{ ui.draft.date=e.target.value; });
   const q=v.querySelector("#q");
   if(q) q.addEventListener("input",e=>{ ui.q=e.target.value; const p=e.target.selectionStart; render();
     const n=document.getElementById("q"); if(n){ n.focus(); n.setSelectionRange(p,p); } });
-  v.querySelectorAll("[data-role]").forEach(sel=>sel.addEventListener("change",e=>changeRole(sel.dataset.role,e.target.value)));
 }
 document.addEventListener("click",e=>{
-  const el=e.target.closest("[data-tab],[data-type],[data-cat],[data-method],[data-fcat],[data-fwho],[data-tx],[data-act],[data-delcat],[data-addmoney],[data-editgoal],[data-editrec],[data-openledger],[data-remove],[data-uninvite],[data-restore],[data-purge],[data-unallow],#openinv,#r-auto,#prevm,#nextm,#themebtn,#mebtn,#ledgersel");
+  const el=e.target.closest("[data-tab],[data-type],[data-cat],[data-method],[data-fcat],[data-fwho],[data-tx],[data-act],[data-delcat],[data-addmoney],[data-editgoal],[data-editrec],[data-openledger],[data-remove],[data-uninvite],[data-restore],[data-purge],[data-unallow],[data-pick],[data-pickdate],[data-pickmonth],[data-pickval],[data-day],[data-month],[data-calnav],[data-calnavyear],#openinv,#r-auto,#prevm,#nextm,#themebtn,#mebtn,#ledgersel");
   if(!el) return;
   if(el.id==="prevm"){ ui.month=shiftMonth(ui.month,-1); return render(); }
   if(el.id==="nextm"){ if(!el.disabled){ ui.month=shiftMonth(ui.month,1); render(); } return; }
@@ -1048,8 +1179,17 @@ document.addEventListener("click",e=>{
   if(el.dataset.unallow) return unallow(el.dataset.unallow);
   if(el.dataset.uninvite) return withdrawInvite(el.dataset.uninvite);
   if(el.dataset.delcat) return delCat(el.dataset.delcat);
+  if(el.hasAttribute("data-pick")) return openOptionPicker(el);
+  if(el.hasAttribute("data-pickdate")) return openDatePicker(el);
+  if(el.hasAttribute("data-pickmonth")) return openMonthPicker(el);
+  if(el.dataset.pickval) return choosePickval(el);
+  if(el.dataset.day) return chooseDay(el.dataset.day);
+  if(el.dataset.month) return chooseMonthCell(el.dataset.month);
+  if(el.dataset.calnav){ ui.picker.month=shiftMonth(ui.picker.month,parseInt(el.dataset.calnav,10)); return renderCalPicker(); }
+  if(el.dataset.calnavyear){ ui.picker.year=Number(ui.picker.year)+parseInt(el.dataset.calnavyear,10); return renderMonthPicker(); }
   const acts={
-    close:closeSheet, addtx:addTx, savetx:saveTx, deltx:delTx,
+    close:closeSheet, closepicker:closePicker, caltoday:pickToday, calclear:pickClear,
+    addtx:addTx, savetx:saveTx, deltx:delTx,
     newgoal:()=>openGoal(null), savegoal:saveGoal, delgoal:delGoal, savemoney:saveMoney,
     newrec:()=>openRec(null), saverec:saveRec, delrec:delRec,
     savebudget:saveBudget, savecb:saveCatBudgets, addcat:addCat,
@@ -1060,7 +1200,11 @@ document.addEventListener("click",e=>{
   };
   if(acts[el.dataset.act]) return acts[el.dataset.act]();
 });
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&document.getElementById("scrim")) closeSheet(); });
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Escape") return;
+  if(document.querySelector("[data-picker-scrim]")) return closePicker();
+  if(document.getElementById("scrim")) closeSheet();
+});
 
 /* ---------------- writes ---------------- */
 const E=id=>doc(db,"ledgers",A.lid,"entries",id);

@@ -32,7 +32,8 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.5;
-  -webkit-font-smoothing:antialiased;padding-bottom:calc(44px + env(safe-area-inset-bottom))}
+  -webkit-font-smoothing:antialiased;padding-bottom:calc(44px + env(safe-area-inset-bottom));
+  padding-top:env(safe-area-inset-top)}
 img{max-width:100%}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer;background:none;border:none}
@@ -67,11 +68,11 @@ button{cursor:pointer;background:none;border:none}
   text-transform:uppercase;letter-spacing:.08em;font-weight:700}
 .netdot i{width:7px;height:7px;border-radius:50%;background:var(--income);display:block}
 .netdot.off i{background:var(--warn)}
-.iconbtn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;
+.iconbtn{width:38px;height:38px;border-radius:9px;border:1px solid var(--line);display:grid;place-items:center;
   background:var(--surface);color:var(--muted);flex:none}
 .iconbtn:hover{color:var(--ink);border-color:var(--line-2)}
-.avatar{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);object-fit:cover;background:var(--surface-2);
-  display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--muted);flex:none;overflow:hidden}
+.avatar{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);object-fit:cover;background:var(--surface-2);
+  display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--muted);flex:none;overflow:hidden}
 
 /* ---------- ledger bar ---------- */
 .ledgerbar{display:flex;align-items:center;gap:8px;padding:2px 0 10px}
@@ -85,14 +86,15 @@ button{cursor:pointer;background:none;border:none}
 .rolechip.owner{background:var(--accent-soft);color:var(--accent)}
 .rolechip.viewer{background:var(--warn-soft);color:var(--warn)}
 
-.monthbar{position:sticky;top:0;z-index:20;background:var(--bg);padding:6px 0 8px;border-bottom:1px solid var(--line)}
+.monthbar{position:sticky;top:env(safe-area-inset-top);z-index:20;background:var(--bg);padding:6px 0 8px;border-bottom:1px solid var(--line)}
 .monthrow{display:flex;align-items:center;justify-content:center;gap:6px}
-.monthrow button{width:34px;height:34px;border-radius:8px;color:var(--muted);font-size:17px;line-height:1}
+.monthrow button{width:40px;height:40px;border-radius:9px;color:var(--muted);font-size:18px;line-height:1}
 .monthrow button:hover{background:var(--surface-2);color:var(--ink)}
 .monthrow button[disabled]{opacity:.3;cursor:default}
 .monthname{font-family:var(--f-disp);font-size:17px;font-weight:600;min-width:190px;text-align:center}
 .tabs{display:flex;gap:2px;margin-top:8px;background:var(--surface-2);padding:3px;border-radius:10px}
-.tabs button{flex:1;padding:7px 2px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.tabs button{flex:1;min-width:0;padding:7px 2px;border-radius:8px;font-size:11.5px;font-weight:600;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
 
 /* ---------- generic ---------- */
@@ -147,7 +149,8 @@ h2.sec{font-family:var(--f-disp);font-size:17px;font-weight:600;margin:0 0 12px;
 .row3{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(min-width:560px){.row3{grid-template-columns:1fr 1fr 1fr}}
 input[type=text],input[type=email],input[type=date],input[type=number],input[type=month],select,textarea{
-  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--sunk)}
+  width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--sunk);
+  font-size:16px}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);background:var(--surface)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:10px;
   background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:14.5px;width:100%}
@@ -201,6 +204,40 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 @media(min-width:640px){.scrim{place-items:center}.sheet{border-radius:16px;border-bottom:1px solid var(--line)}}
 .sheethead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .sheethead h3{font-family:var(--f-disp);font-size:18px;margin:0;font-weight:600}
+
+/* ---------- pickers (iOS-style dropdown & calendar) ---------- */
+.picker{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+  padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--sunk);
+  font-size:14.5px;font-weight:500;text-align:left;color:var(--ink)}
+.picker:hover{border-color:var(--line-2)}
+.picker .pv{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.picker .pv.ph{color:var(--faint);font-weight:400}
+.picker .cr{color:var(--faint);font-size:11px;flex:none;margin-left:6px}
+.picker.sm{width:auto;padding:6px 10px;font-size:13px}
+.picker-scrim{z-index:60}
+.picker-sheet{max-width:380px}
+.picklist{display:flex;flex-direction:column;gap:2px;max-height:60vh;overflow-y:auto;margin:0 -6px}
+.pickrow{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  padding:12px 10px;border-radius:10px;font-size:15px;text-align:left}
+.pickrow:hover{background:var(--sunk)}
+.pickrow[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.pickcheck{color:var(--accent);font-weight:700}
+.calnav{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
+.calnav .calmonth{font-family:var(--f-disp);font-size:16px;font-weight:600}
+.calnav button{width:36px;height:36px;border-radius:9px;color:var(--muted);font-size:17px;display:grid;place-items:center;flex:none}
+.calnav button:hover{background:var(--surface-2);color:var(--ink)}
+.calnav button[disabled]{opacity:.3;cursor:default}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}
+.calgrid.months{grid-template-columns:repeat(3,1fr)}
+.caldow{font-size:11px;font-weight:700;color:var(--faint);padding:4px 0;text-transform:uppercase}
+.calcell{width:100%;min-width:0;aspect-ratio:1;display:grid;place-items:center;border-radius:50%;font-size:14px;font-family:var(--f-num);color:var(--ink);padding:0}
+.calcell.empty{visibility:hidden}
+.calcell:hover:not([disabled]):not(.sel){background:var(--surface-2)}
+.calcell.today{color:var(--accent);font-weight:700}
+.calcell.sel{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.calcell[disabled]{color:var(--faint);opacity:.4;cursor:default}
+.calgrid.months .calcell{aspect-ratio:auto;border-radius:10px;padding:13px 0;font-family:var(--f-ui);font-weight:600}
+.calfoot{display:flex;gap:10px;margin-top:14px}
 
 .note{background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--r-s);
   padding:11px 13px;font-size:13px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
