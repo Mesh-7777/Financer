@@ -180,6 +180,14 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);
 .dayaxis{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);
   font-family:var(--f-num);margin-top:6px;border-top:1px solid var(--line);padding-top:5px}
 
+.trendchart{display:flex;align-items:flex-end;gap:10px;height:120px;padding-top:6px;overflow-x:auto}
+.trendcol{display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;min-width:28px}
+.trendbars{display:flex;align-items:flex-end;gap:3px;height:96px}
+.trendbars i{width:10px;border-radius:2px 2px 0 0;display:block;min-height:2px}
+.trendbars i.in{background:var(--income)}
+.trendbars i.out{background:var(--spend)}
+.trendlabel{font-size:10.5px;color:var(--faint);font-family:var(--f-num);white-space:nowrap}
+
 .daygroup{margin-top:16px}
 .dayhead{display:flex;justify-content:space-between;align-items:baseline;padding:0 2px 6px;border-bottom:1px solid var(--line)}
 .dayhead .d{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}

@@ -62,7 +62,7 @@ const A={
   postedRecur:new Set()     // guards double-posting within a session
 };
 let ui={tab:"add",month:monthOf(ymd(new Date())),type:"expense",cat:null,method:"UPI",q:"",filterCat:"",filterWho:"",editing:null,busy:false,
-  draft:{amt:"",note:"",date:""},picker:null};
+  draft:{amt:"",note:"",date:""},picker:null,ovRange:"month"};
 
 const settings=()=>Object.assign(
   {budget:0,catBudgets:{},cats:DEF_EXP.slice(),incomeCats:DEF_INC.slice()},
@@ -371,8 +371,33 @@ function stats(m){
   const rate=income>0?(income-spent-saved)/income*100:0;
   return {tx,spent,income,saved,net:income-spent,dim,elapsed,left,avg,projected:avg*dim,cur,rate};
 }
-function catSpend(m){ const o={}; monthTx(m).filter(t=>t.type==="expense").forEach(t=>{o[t.cat]=(o[t.cat]||0)+t.amt}); return o; }
-function whoSpend(m){ const o={}; monthTx(m).filter(t=>t.type==="expense").forEach(t=>{o[t.uid]=(o[t.uid]||0)+t.amt}); return o; }
+function txCat(tx){ const o={}; tx.filter(t=>t.type==="expense").forEach(t=>{o[t.cat]=(o[t.cat]||0)+t.amt}); return o; }
+function txWho(tx){ const o={}; tx.filter(t=>t.type==="expense").forEach(t=>{o[t.uid]=(o[t.uid]||0)+t.amt}); return o; }
+function catSpend(m){ return txCat(monthTx(m)); }
+function whoSpend(m){ return txWho(monthTx(m)); }
+// All-time totals across every entry ever logged in the ledger, for the
+// Overview tab's "All time" toggle — a lifetime view alongside the
+// month-scoped one, since the month bar elsewhere still drives Add/Plan/History.
+function allStats(){
+  const tx=A.entries;
+  const spent=tx.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amt,0);
+  const income=tx.filter(t=>t.type==="income").reduce((a,b)=>a+b.amt,0);
+  const saved=A.goals.reduce((a,g)=>a+((g.hist||[]).reduce((x,y)=>x+y.a,0)),0);
+  const dates=tx.map(t=>t.date).sort();
+  const months=new Set(tx.map(t=>monthOf(t.date))).size||1;
+  const rate=income>0?(income-spent-saved)/income*100:0;
+  return {tx,spent,income,saved,net:income-spent,rate,months,avgPerMonth:spent/months,
+    from:dates[0]||ymd(new Date()),to:dates[dates.length-1]||ymd(new Date())};
+}
+function monthFlow(m){
+  const tx=monthTx(m);
+  return {month:m,income:tx.filter(t=>t.type==="income").reduce((a,b)=>a+b.amt,0),
+    expense:tx.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amt,0)};
+}
+function trendMonths(n){
+  const all=[...new Set(A.entries.map(t=>monthOf(t.date)))].sort();
+  return all.length?all.slice(-n):[monthOf(ymd(new Date()))];
+}
 function goalNeed(g){
   const rem=Math.max(0,(g.target||0)-(g.saved||0));
   if(!g.by) return {rem,months:0,perMonth:0};
@@ -530,6 +555,12 @@ function defaultDate(){
 }
 
 function viewOverview(){
+  const toggle=`<div class="seg" role="group" aria-label="Overview range" style="margin-bottom:14px">
+    <button data-ovrange="month" aria-pressed="${ui.ovRange!=="all"}">This month</button>
+    <button data-ovrange="all" aria-pressed="${ui.ovRange==="all"}">All time</button></div>`;
+  return readOnlyNote()+toggle+(ui.ovRange==="all"?viewOverviewAll():viewOverviewMonth());
+}
+function viewOverviewMonth(){
   const s=stats(ui.month), st=settings(), b=st.budget||0;
   const pct=b>0?Math.min(100,s.spent/b*100):0, over=b>0&&s.spent>b, pace=s.cur?(s.elapsed/s.dim*100):100;
   const spent=catSpend(ui.month), cb=st.catBudgets||{};
@@ -545,7 +576,6 @@ function viewOverview(){
   const ws=whoSpend(ui.month), whoRows=Object.entries(ws).sort((a,b)=>b[1]-a[1]);
 
   return `
-  ${readOnlyNote()}
   <section class="summary">
     <p class="eyebrow">Spent in ${esc(monthLabel(ui.month))}</p>
     <p class="bigfig">${money(s.spent)}${b>0?`<small>of ${money(b)}</small>`:""}</p>
@@ -608,6 +638,55 @@ function viewOverview(){
         <div><span class="catamt">${money(v)}</span> <span class="catpct">${Math.round(v/s.spent*100)}%</span></div>
         <div class="track"><i style="width:${v/maxCat*100}%;background:${catColor(c)}"></i></div>
       </div>`).join("")}</div>`:`<p class="empty">No expenses recorded this month.</p>`}
+  </section>`;
+}
+function viewOverviewAll(){
+  const s=allStats();
+  const cats=Object.entries(txCat(s.tx)).sort((a,b)=>b[1]-a[1]);
+  const maxCat=cats.length?cats[0][1]:1;
+  const ws=txWho(s.tx), whoRows=Object.entries(ws).sort((a,b)=>b[1]-a[1]);
+  const tms=trendMonths(12).map(monthFlow);
+  const maxFlow=Math.max(1,...tms.map(f=>Math.max(f.income,f.expense)));
+  const span=s.from===s.to?fmtDay(s.from,{day:"numeric",month:"short",year:"numeric"})
+    :`${fmtDay(s.from,{month:"short",year:"numeric"})} – ${fmtDay(s.to,{month:"short",year:"numeric"})}`;
+
+  return `
+  <section class="summary">
+    <p class="eyebrow">All time · ${esc(span)}</p>
+    <p class="bigfig">${money(s.spent)}<small>spent across ${s.months} ${s.months===1?"month":"months"}</small></p>
+    <dl class="statgrid">
+      <div class="stat"><dt>Income</dt><dd class="up">${money(s.income)}</dd></div>
+      <div class="stat"><dt>Net</dt><dd class="${s.net>=0?"up":"down"}">${s.net>=0?"+":"−"}${money(Math.abs(s.net))}</dd></div>
+      <div class="stat"><dt>To goals</dt><dd>${money(s.saved)}</dd></div>
+      <div class="stat"><dt>Save rate</dt><dd class="${s.rate>=20?"up":s.rate>=0?"":"down"}">${s.income>0?Math.round(s.rate)+"%":"—"}</dd></div>
+      <div class="stat"><dt>Avg per month</dt><dd>${money(s.avgPerMonth)}</dd></div>
+    </dl>
+  </section>
+
+  ${whoRows.length>1?`<section class="panel">
+    <h2 class="sec">Who spent what</h2>
+    <div class="splitbar">${whoRows.map(([uid,v])=>`<i style="width:${v/s.spent*100}%;background:${personColor(uid)}"></i>`).join("")}</div>
+    <div class="legend">${whoRows.map(([uid,v])=>`<span><i style="background:${personColor(uid)}"></i>${esc(memberName(uid))} <b class="num">${money(v)}</b></span>`).join("")}</div>
+  </section>`:""}
+
+  <section class="panel">
+    <div class="sechead"><h2 class="sec">Income vs spending</h2><span class="hint">last ${tms.length} ${tms.length===1?"month":"months"}</span></div>
+    <div class="legend" style="margin-bottom:10px"><span><i style="background:var(--income)"></i>Income</span><span><i style="background:var(--spend)"></i>Spent</span></div>
+    <div class="trendchart" role="img" aria-label="Income versus spending by month">
+      ${tms.map(f=>`<div class="trendcol" title="${esc(monthLabel(f.month))} — income ${money(f.income)}, spent ${money(f.expense)}">
+        <div class="trendbars"><i class="in" style="height:${f.income?Math.max(3,f.income/maxFlow*100):0}%"></i><i class="out" style="height:${f.expense?Math.max(3,f.expense/maxFlow*100):0}%"></i></div>
+        <span class="trendlabel">${monthShort(f.month)}</span></div>`).join("")}
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2 class="sec">Where it went</h2>
+    ${cats.length?`<div class="catlist">${cats.map(([c,v])=>`
+      <div class="catrow">
+        <div class="catname"><span class="dot" style="background:${catColor(c)}"></span><b>${esc(c)}</b></div>
+        <div><span class="catamt">${money(v)}</span> <span class="catpct">${Math.round(v/s.spent*100)}%</span></div>
+        <div class="track"><i style="width:${v/maxCat*100}%;background:${catColor(c)}"></i></div>
+      </div>`).join("")}</div>`:`<p class="empty">No expenses recorded yet.</p>`}
   </section>`;
 }
 
@@ -1153,7 +1232,7 @@ function wire(){
     const n=document.getElementById("q"); if(n){ n.focus(); n.setSelectionRange(p,p); } });
 }
 document.addEventListener("click",e=>{
-  const el=e.target.closest("[data-tab],[data-type],[data-cat],[data-method],[data-fcat],[data-fwho],[data-tx],[data-act],[data-delcat],[data-addmoney],[data-editgoal],[data-editrec],[data-openledger],[data-remove],[data-uninvite],[data-restore],[data-purge],[data-unallow],[data-pick],[data-pickdate],[data-pickmonth],[data-pickval],[data-day],[data-month],[data-calnav],[data-calnavyear],#openinv,#r-auto,#prevm,#nextm,#themebtn,#mebtn,#ledgersel");
+  const el=e.target.closest("[data-tab],[data-ovrange],[data-type],[data-cat],[data-method],[data-fcat],[data-fwho],[data-tx],[data-act],[data-delcat],[data-addmoney],[data-editgoal],[data-editrec],[data-openledger],[data-remove],[data-uninvite],[data-restore],[data-purge],[data-unallow],[data-pick],[data-pickdate],[data-pickmonth],[data-pickval],[data-day],[data-month],[data-calnav],[data-calnavyear],#openinv,#r-auto,#prevm,#nextm,#themebtn,#mebtn,#ledgersel");
   if(!el) return;
   if(el.id==="prevm"){ ui.month=shiftMonth(ui.month,-1); return render(); }
   if(el.id==="nextm"){ if(!el.disabled){ ui.month=shiftMonth(ui.month,1); render(); } return; }
@@ -1163,6 +1242,7 @@ document.addEventListener("click",e=>{
   if(el.id==="openinv") return toggleOpenInvites();
   if(el.id==="r-auto"){ el.setAttribute("aria-checked",el.getAttribute("aria-checked")==="true"?"false":"true"); return; }
   if(el.dataset.tab){ ui.tab=el.dataset.tab; return render(); }
+  if(el.dataset.ovrange){ ui.ovRange=el.dataset.ovrange; return render(); }
   if(el.dataset.type){ ui.type=el.dataset.type; ui.cat=null; return render(); }
   if(el.dataset.cat){ ui.cat=el.dataset.cat; return render(); }
   if(el.dataset.method){ ui.method=el.dataset.method; return render(); }
