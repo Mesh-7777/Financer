@@ -948,7 +948,8 @@ function viewData(){
       <span class="body"><span class="nm">${esc(a.email)}${a.seed?" (you)":""}</span>
         <span class="em">${a.seed?"Runs this app":"Enrolled by invite"}</span></span>
       ${a.seed?`<span class="rolechip owner">seed</span>`
-        :`<button class="iconbtn" data-unallow="${esc(a.email)}" aria-label="Remove ${esc(a.email)}">×</button>`}
+        :`<button class="btn ghost sm" data-share="${esc(a.email)}">Share</button>
+          <button class="iconbtn" data-unallow="${esc(a.email)}" aria-label="Remove ${esc(a.email)}">×</button>`}
     </div>`).join("")}
     <div class="row2" style="margin-top:14px">
       <div class="field"><input id="a-email" type="email" inputmode="email" placeholder="name@gmail.com" autocomplete="off"></div>
@@ -1232,7 +1233,7 @@ function wire(){
     const n=document.getElementById("q"); if(n){ n.focus(); n.setSelectionRange(p,p); } });
 }
 document.addEventListener("click",e=>{
-  const el=e.target.closest("[data-tab],[data-ovrange],[data-type],[data-cat],[data-method],[data-fcat],[data-fwho],[data-tx],[data-act],[data-delcat],[data-addmoney],[data-editgoal],[data-editrec],[data-openledger],[data-remove],[data-uninvite],[data-restore],[data-purge],[data-unallow],[data-pick],[data-pickdate],[data-pickmonth],[data-pickval],[data-day],[data-month],[data-calnav],[data-calnavyear],#openinv,#r-auto,#prevm,#nextm,#themebtn,#mebtn,#ledgersel");
+  const el=e.target.closest("[data-tab],[data-ovrange],[data-type],[data-cat],[data-method],[data-fcat],[data-fwho],[data-tx],[data-act],[data-delcat],[data-addmoney],[data-editgoal],[data-editrec],[data-openledger],[data-remove],[data-uninvite],[data-restore],[data-purge],[data-unallow],[data-share],[data-pick],[data-pickdate],[data-pickmonth],[data-pickval],[data-day],[data-month],[data-calnav],[data-calnavyear],#openinv,#r-auto,#prevm,#nextm,#themebtn,#mebtn,#ledgersel");
   if(!el) return;
   if(el.id==="prevm"){ ui.month=shiftMonth(ui.month,-1); return render(); }
   if(el.id==="nextm"){ if(!el.disabled){ ui.month=shiftMonth(ui.month,1); render(); } return; }
@@ -1257,6 +1258,7 @@ document.addEventListener("click",e=>{
   if(el.dataset.restore) return restoreLedger(el.dataset.restore);
   if(el.dataset.purge) return purgeNow(el.dataset.purge);
   if(el.dataset.unallow) return unallow(el.dataset.unallow);
+  if(el.dataset.share) return shareAllowed(el.dataset.share);
   if(el.dataset.uninvite) return withdrawInvite(el.dataset.uninvite);
   if(el.dataset.delcat) return delCat(el.dataset.delcat);
   if(el.hasAttribute("data-pick")) return openOptionPicker(el);
@@ -1405,6 +1407,16 @@ function allowEmail(){
     await setDoc(doc(db,"allowed",email),{email,by:A.me.uid,at:serverTimestamp()},{merge:true});
     await loadAllowList(); render();
   },email+" can now use the app");
+}
+// navigator.share opens the OS share sheet (WhatsApp/Messages on a phone)
+// so inviting someone is one tap, not "go copy this link and paste it
+// somewhere yourself"; desktop browsers without it fall back to a
+// prefilled mailto: instead.
+function shareAllowed(email){
+  const url=location.origin+location.pathname;
+  const text=`You're invited to use Paisa Ledger — sign in with your Google account (${email}) to get started.`;
+  if(navigator.share){ navigator.share({title:"Paisa Ledger",text,url}).catch(()=>{}); }
+  else location.href=`mailto:${email}?subject=${encodeURIComponent("You're invited to Paisa Ledger")}&body=${encodeURIComponent(text+"\n\n"+url)}`;
 }
 function unallow(email){
   if(!confirm("Remove "+email+" from the app?\n\nThey keep access to ledgers they're already in — remove them there separately — but they can't start new ones.")) return;
